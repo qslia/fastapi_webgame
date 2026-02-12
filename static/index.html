@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        .game-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .game-info {
+            margin-bottom: 20px;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .level {
+            font-size: 18px;
+            color: #666;
+        }
+        .game-board {
+            width: 300px;
+            height: 300px;
+            border: 2px solid #333;
+            margin: 0 auto 20px;
+            position: relative;
+            background-color: #f9f9f9;
+        }
+        .game-piece {
+            width: 50px;
+            height: 50px;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            position: absolute;
+            top: 125px;
+            left: 125px;
+            transition: all 0.3s ease;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-row {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #007B9E;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e3f2fd;
+            border-radius: 5px;
+            color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Simple Game</h1>
+        
+        <div class="game-info">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="level">Level: <span id="level">1</span></div>
+        </div>
+        
+        <div class="game-board">
+            <div class="game-piece" id="gamePiece"></div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-row">
+                <button onclick="move('up')">Up</button>
+            </div>
+            <div class="control-row">
+                <button onclick="move('left')">Left</button>
+                <button onclick="move('down')">Down</button>
+                <button onclick="move('right')">Right</button>
+            </div>
+            <button onclick="startGame()">Start New Game</button>
+        </div>
+        
+        <div class="message" id="message">Click "Start New Game" to begin!</div>
+    </div>
+    
+    <script>
+        let gameId = null;
+        let score = 0;
+        let level = 1;
+        let piecePosition = { x: 125, y: 125 };
+        
+        async function startGame() {
+            const response = await fetch('/api/game/start');
+            const data = await response.json();
+            
+            gameId = data.game_id;
+            score = data.score;
+            level = data.level;
+            
+            updateGameInfo();
+            updateMessage(data.message);
+            resetPiecePosition();
+        }
+        
+        async function move(direction) {
+            if (!gameId) {
+                updateMessage('Please start a game first!');
+                return;
+            }
+            
+            const response = await fetch('/api/game/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ direction })
+            });
+            
+            const data = await response.json();
+            score = data.score;
+            level = data.level;
+            
+            updateGameInfo();
+            updateMessage(data.message);
+            updatePiecePosition(direction);
+        }
+        
+        function updateGameInfo() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('level').textContent = level;
+        }
+        
+        function updateMessage(message) {
+            document.getElementById('message').textContent = message;
+        }
+        
+        function resetPiecePosition() {
+            piecePosition = { x: 125, y: 125 };
+            updatePieceStyle();
+        }
+        
+        function updatePiecePosition(direction) {
+            const step = 50;
+            
+            switch(direction) {
+                case 'up':
+                    piecePosition.y = Math.max(0, piecePosition.y - step);
+                    break;
+                case 'down':
+                    piecePosition.y = Math.min(250, piecePosition.y + step);
+                    break;
+                case 'left':
+                    piecePosition.x = Math.max(0, piecePosition.x - step);
+                    break;
+                case 'right':
+                    piecePosition.x = Math.min(250, piecePosition.x + step);
+                    break;
+            }
+            
+            updatePieceStyle();
+        }
+        
+        function updatePieceStyle() {
+            const piece = document.getElementById('gamePiece');
+            piece.style.top = piecePosition.y + 'px';
+            piece.style.left = piecePosition.x + 'px';
+        }
+    </script>
+</body>
+</html>
