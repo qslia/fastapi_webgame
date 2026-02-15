@@ -18,6 +18,7 @@ class GameState(BaseModel):
     position: dict = {"x": 125, "y": 125}
 
 class MoveRequest(BaseModel):
+    game_id: str
     direction: str
 
 class MoveResponse(BaseModel):
@@ -62,18 +63,16 @@ async def start_game():
 @app.post("/api/game/move", response_model=MoveResponse)
 async def make_move(move_request: MoveRequest):
     """Make a move in the game"""
-    # For simplicity, we'll use the first game in storage
-    # In a real app, you'd get the game_id from the request or session
-    if not games:
+    if move_request.game_id not in games:
         return MoveResponse(
-            game_id="",
+            game_id=move_request.game_id,
             direction=move_request.direction,
             score=0,
             level=1,
-            message="No active game found!"
+            message="Game not found! Please start a new game."
         )
     
-    game_id = list(games.keys())[0]
+    game_id = move_request.game_id
     game = games[game_id]
     
     # Update position based on direction
