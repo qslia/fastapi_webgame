@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,24 +14,71 @@
             text-align: center;
             background-color: #f0f0f0;
         }
-        .game-container {
+
+        .container {
             background-color: white;
             border-radius: 10px;
             padding: 20px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
+
+        .auth-container {
+            max-width: 300px;
+            margin: 0 auto;
+        }
+
+        .auth-container input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .auth-container button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 16px;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .auth-container button:hover {
+            background-color: #007B9E;
+        }
+
+        .auth-container button.secondary {
+            background-color: #4CAF50;
+        }
+
+        .auth-container button.secondary:hover {
+            background-color: #45a049;
+        }
+
+        .game-container {
+            display: none;
+        }
+
         .game-info {
             margin-bottom: 20px;
         }
+
         .score {
             font-size: 24px;
             font-weight: bold;
             color: #333;
         }
+
         .level {
             font-size: 18px;
             color: #666;
         }
+
         .game-board {
             width: 300px;
             height: 300px;
@@ -39,6 +87,7 @@
             position: relative;
             background-color: #f9f9f9;
         }
+
         .game-piece {
             width: 50px;
             height: 50px;
@@ -49,16 +98,19 @@
             left: 125px;
             transition: all 0.3s ease;
         }
+
         .controls {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 10px;
         }
+
         .control-row {
             display: flex;
             gap: 10px;
         }
+
         button {
             padding: 10px 20px;
             font-size: 16px;
@@ -68,9 +120,11 @@
             border-radius: 5px;
             cursor: pointer;
         }
+
         button:hover {
             background-color: #007B9E;
         }
+
         .message {
             margin-top: 20px;
             padding: 10px;
@@ -78,53 +132,203 @@
             border-radius: 5px;
             color: #1976D2;
         }
+
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .user-info {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #e8f5e9;
+            border-radius: 5px;
+        }
+
+        .logout-btn {
+            background-color: #f44336;
+            padding: 5px 15px;
+            font-size: 14px;
+        }
+
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
     </style>
 </head>
+
 <body>
-    <div class="game-container">
+    <div class="container">
         <h1>Simple Game</h1>
-        
-        <div class="game-info">
-            <div class="score">Score: <span id="score">0</span></div>
-            <div class="level">Level: <span id="level">1</span></div>
+
+        <div id="authSection" class="auth-container">
+            <h2 id="authTitle">Login</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button id="authBtn" onclick="handleAuth()">Login</button>
+            <button class="secondary" onclick="toggleAuthMode()">Register Instead</button>
+            <div id="authMessage" class="message" style="display: none;"></div>
         </div>
-        
-        <div class="game-board">
-            <div class="game-piece" id="gamePiece"></div>
-        </div>
-        
-        <div class="controls">
-            <div class="control-row">
-                <button onclick="move('up')">Up</button>
+
+        <div id="gameSection" class="game-container">
+            <div class="user-info">
+                Welcome, <span id="username-display"></span>!
+                <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
-            <div class="control-row">
-                <button onclick="move('left')">Left</button>
-                <button onclick="move('down')">Down</button>
-                <button onclick="move('right')">Right</button>
+
+            <div class="game-info">
+                <div class="score">Score: <span id="score">0</span></div>
+                <div class="level">Level: <span id="level">1</span></div>
             </div>
-            <button onclick="startGame()">Start New Game</button>
+
+            <div class="game-board">
+                <div class="game-piece" id="gamePiece"></div>
+            </div>
+
+            <div class="controls">
+                <div class="control-row">
+                    <button onclick="move('up')">Up</button>
+                </div>
+                <div class="control-row">
+                    <button onclick="move('left')">Left</button>
+                    <button onclick="move('down')">Down</button>
+                    <button onclick="move('right')">Right</button>
+                </div>
+                <button onclick="startGame()">Start New Game</button>
+            </div>
+
+            <div class="message" id="message">Click "Start New Game" to begin!</div>
         </div>
-        
-        <div class="message" id="message">Click "Start New Game" to begin!</div>
     </div>
-    
+
     <script>
+        let isLoginMode = true;
+        let token = localStorage.getItem('token') || null;
         let gameId = localStorage.getItem('gameId') || null;
         let score = 0;
         let level = 1;
         let piecePosition = { x: 125, y: 125 };
-        
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('authTitle').textContent = isLoginMode ? 'Login' : 'Register';
+            document.getElementById('authBtn').textContent = isLoginMode ? 'Login' : 'Register';
+            document.getElementById('authMessage').style.display = 'none';
+        }
+
+        function showAuthMessage(message, isError = false) {
+            const msgEl = document.getElementById('authMessage');
+            msgEl.textContent = message;
+            msgEl.style.display = 'block';
+            msgEl.className = isError ? 'message error' : 'message';
+        }
+
+        async function handleAuth() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                showAuthMessage('Please enter username and password', true);
+                return;
+            }
+
+            const endpoint = isLoginMode ? '/api/login' : '/api/register';
+
+            try {
+                let response;
+
+
+
+                if (isLoginMode) {
+                    const formData = new FormData();
+                    formData.append('username', username);
+                    formData.append('password', password);
+
+                    response = await fetch(endpoint, {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username: username, password: password })
+                    });
+                }
+
+                const contentType = response.headers.get('content-type') || '';
+                const raw = await response.text();
+
+                let data;
+                if (contentType.includes('application/json')) {
+                    try { data = JSON.parse(raw); } catch { data = { detail: raw }; }
+                } else {
+                    data = { detail: raw };   // 这里就能看到 Internal Server Error / HTML 了
+                }
+
+                if (response.ok) {
+                    if (isLoginMode) {
+                        token = data.access_token;
+                        localStorage.setItem('token', token);
+                        showGame();
+                    } else {
+                        showAuthMessage('Registration successful! Please login.');
+                        toggleAuthMode();
+                    }
+                } else {
+                    const errorMsg = typeof data.detail === 'string'
+                        ? data.detail
+                        : JSON.stringify(data.detail);
+                    showAuthMessage(errorMsg || 'An error occurred', true);
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+                showAuthMessage('Connection error: ' + error.message, true);
+            }
+        }
+
+        function logout() {
+            token = null;
+            gameId = null;
+            localStorage.removeItem('token');
+            localStorage.removeItem('gameId');
+            showAuth();
+        }
+
+        function showAuth() {
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('gameSection').style.display = 'none';
+        }
+
+        function showGame() {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('gameSection').style.display = 'block';
+            loadGameState();
+        }
+
         async function loadGameState() {
-            if (gameId) {
+            if (gameId && token) {
                 try {
-                    const response = await fetch(`/api/game/status?game_id=${gameId}`);
+                    const response = await fetch(`/api/game/status?game_id=${gameId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.status === 401) {
+                        logout();
+                        return;
+                    }
+
                     const data = await response.json();
-                    
-                    if (!data.game_over) {
+
+                    if (!data.game_over && !data.message) {
                         score = data.score;
                         level = data.level;
                         piecePosition = data.position;
-                        
+
                         updateGameInfo();
                         updatePieceStyle();
                         updateMessage('Welcome back to your game!');
@@ -134,64 +338,78 @@
                 }
             }
         }
-        
+
         async function startGame() {
-            const response = await fetch('/api/game/start');
+            const response = await fetch('/api/game/start', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401) {
+                logout();
+                return;
+            }
+
             const data = await response.json();
-            
+
             gameId = data.game_id;
             localStorage.setItem('gameId', gameId);
             score = data.score;
             level = data.level;
-            
+
             updateGameInfo();
             updateMessage(data.message);
             resetPiecePosition();
         }
-        
-        loadGameState();
-        
+
         async function move(direction) {
             if (!gameId) {
                 updateMessage('Please start a game first!');
                 return;
             }
-            
+
             const response = await fetch('/api/game/move', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ game_id: gameId, direction: direction })
             });
-            
+
+            if (response.status === 401) {
+                logout();
+                return;
+            }
+
             const data = await response.json();
             score = data.score;
             level = data.level;
-            
+
             updateGameInfo();
             updateMessage(data.message);
             updatePiecePosition(direction);
         }
-        
+
         function updateGameInfo() {
             document.getElementById('score').textContent = score;
             document.getElementById('level').textContent = level;
         }
-        
+
         function updateMessage(message) {
             document.getElementById('message').textContent = message;
         }
-        
+
         function resetPiecePosition() {
             piecePosition = { x: 125, y: 125 };
             updatePieceStyle();
         }
-        
+
         function updatePiecePosition(direction) {
             const step = 50;
-            
-            switch(direction) {
+
+            switch (direction) {
                 case 'up':
                     piecePosition.y = Math.max(0, piecePosition.y - step);
                     break;
@@ -205,15 +423,20 @@
                     piecePosition.x = Math.min(250, piecePosition.x + step);
                     break;
             }
-            
+
             updatePieceStyle();
         }
-        
+
         function updatePieceStyle() {
             const piece = document.getElementById('gamePiece');
             piece.style.top = piecePosition.y + 'px';
             piece.style.left = piecePosition.x + 'px';
         }
+
+        if (token) {
+            showGame();
+        }
     </script>
 </body>
+
 </html>
