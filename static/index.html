@@ -154,6 +154,30 @@
         .logout-btn:hover {
             background-color: #d32f2f;
         }
+
+        .captcha-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .captcha-container input {
+            flex: 1;
+        }
+
+        .captcha-image {
+            width: 120px;
+            height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+        }
+
+        .captcha-image:hover {
+            border-color: #008CBA;
+        }
     </style>
 </head>
 
@@ -165,6 +189,10 @@
             <h2 id="authTitle">Login</h2>
             <input type="text" id="username" placeholder="Username">
             <input type="password" id="password" placeholder="Password">
+            <div class="captcha-container">
+                <input type="text" id="captchaCode" placeholder="Captcha">
+                <img id="captchaImage" class="captcha-image" onclick="refreshCaptcha()" title="Click to refresh">
+            </div>
             <button id="authBtn" onclick="handleAuth()">Login</button>
             <button class="secondary" onclick="toggleAuthMode()">Register Instead</button>
             <div id="authMessage" class="message" style="display: none;"></div>
@@ -208,12 +236,28 @@
         let score = 0;
         let level = 1;
         let piecePosition = { x: 125, y: 125 };
+        let captchaKey = null;
+
+        async function refreshCaptcha() {
+            try {
+                const response = await fetch('/api/captcha');
+                const captchaKeyHeader = response.headers.get('X-Captcha-Key');
+                captchaKey = captchaKeyHeader;
+                
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                document.getElementById('captchaImage').src = url;
+            } catch (error) {
+                console.error('Failed to load captcha:', error);
+            }
+        }
 
         function toggleAuthMode() {
             isLoginMode = !isLoginMode;
             document.getElementById('authTitle').textContent = isLoginMode ? 'Login' : 'Register';
             document.getElementById('authBtn').textContent = isLoginMode ? 'Login' : 'Register';
             document.getElementById('authMessage').style.display = 'none';
+            refreshCaptcha();
         }
 
         function showAuthMessage(message, isError = false) {
@@ -226,9 +270,15 @@
         async function handleAuth() {
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const captchaCode = document.getElementById('captchaCode').value;
 
             if (!username || !password) {
                 showAuthMessage('Please enter username and password', true);
+                return;
+            }
+
+            if (!captchaCode) {
+                showAuthMessage('Please enter captcha', true);
                 return;
             }
 
@@ -237,12 +287,12 @@
             try {
                 let response;
 
-
-
                 if (isLoginMode) {
                     const formData = new FormData();
                     formData.append('username', username);
                     formData.append('password', password);
+                    formData.append('captcha_key', captchaKey);
+                    formData.append('captcha_code', captchaCode);
 
                     response = await fetch(endpoint, {
                         method: 'POST',
@@ -254,7 +304,12 @@
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ username: username, password: password })
+                        body: JSON.stringify({ 
+                            username: username, 
+                            password: password,
+                            captcha_key: captchaKey,
+                            captcha_code: captchaCode
+                        })
                     });
                 }
 
@@ -265,7 +320,7 @@
                 if (contentType.includes('application/json')) {
                     try { data = JSON.parse(raw); } catch { data = { detail: raw }; }
                 } else {
-                    data = { detail: raw };   // 这里就能看到 Internal Server Error / HTML 了
+                    data = { detail: raw };
                 }
 
                 if (response.ok) {
@@ -282,10 +337,12 @@
                         ? data.detail
                         : JSON.stringify(data.detail);
                     showAuthMessage(errorMsg || 'An error occurred', true);
+                    refreshCaptcha();
                 }
             } catch (error) {
                 console.error('Auth error:', error);
                 showAuthMessage('Connection error: ' + error.message, true);
+                refreshCaptcha();
             }
         }
 
@@ -435,6 +492,8 @@
 
         if (token) {
             showGame();
+        } else {
+            refreshCaptcha();
         }
     </script>
 </body>

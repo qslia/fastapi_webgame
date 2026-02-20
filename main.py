@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,6 +17,7 @@ from auth import (
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
+from captcha import CaptchaManager
 
 Base.metadata.create_all(bind=engine)
 
@@ -36,6 +37,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 class UserCreate(BaseModel):
     username: str
     password: str
+    captcha_key: str
+    captcha_code: str
 
 
 class Token(BaseModel):
@@ -77,8 +80,42 @@ async def root():
         return f.read()
 
 
+@app.get("/api/captcha")
+async def get_captcha():
+    captcha_text = CaptchaManager.generate_captcha_text()
+    captcha_key = CaptchaManager.generate_captcha_key()
+    
+    CaptchaManager.store_captcha(captcha_key, captcha_text)
+    
+    image_buffer = CaptchaManager.generate_captcha_image(captcha_text)
+    
+    return StreamingResponse(
+        image_buffer,
+        media_type="image/png",
+        headers={"X-Captcha-Key": captcha_key}
+    )
+
+
+@app.get("/api/captcha/new")
+async def refresh_captcha():
+    captcha_text = CaptchaManager.generate_captcha_text()
+    captcha_key = CaptchaManager.generate_captcha_key()
+    
+    CaptchaManager.store_captcha(captcha_key, captcha_text)
+    
+    image_buffer = CaptchaManager.generate_captcha_image(captcha_text)
+    
+    return {
+        "captcha_key": captcha_key,
+        "captcha_image": f"/api/captcha?key={captcha_key}"
+    }
+
+
 @app.post("/api/register")
 async def register(user: UserCreate, db: Session = Depends(get_db)):
+    if not CaptchaManager.verify_captcha(user.captcha_key, user.captcha_code):
+        raise HTTPException(status_code=400, detail="Invalid or expired captcha")
+    
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -93,9 +130,21 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/api/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+async def login(
+    username: str = Form(...),
+    password: str = Form(...),
+    captcha_key: str = Form(...),
+    captcha_code: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    if not CaptchaManager.verify_captcha(captcha_key, captcha_code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired captcha",
+        )
+    
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
